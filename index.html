@@ -122,6 +122,21 @@
                     <div id="broadcast" class="tab-pane">
                         <h3>选择播报内容</h3>
                         <div class="broadcast-list" id="broadcastList"></div>
+                        
+                        <div class="broadcast-scope-section">
+                            <h4>📡 广播覆盖范围</h4>
+                            <div class="scope-buttons">
+                                <button class="scope-btn active" data-scope="all">🌍 全城广播</button>
+                                <button class="scope-btn" data-scope="single">🎯 单区域定向</button>
+                                <button class="scope-btn" data-scope="multi">📋 多区域定向</button>
+                            </div>
+                            <div class="scope-hint" id="scopeHint">
+                                全城广播：覆盖所有城区，耗电量正常，但容易引发误读和恐慌
+                            </div>
+                            <div class="district-selector" id="districtSelector">
+                            </div>
+                        </div>
+                        
                         <div class="broadcast-preview" id="broadcastPreview">
                             <p>请选择要播报的消息...</p>
                         </div>

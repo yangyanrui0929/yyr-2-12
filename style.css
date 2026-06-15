@@ -857,3 +857,236 @@ body {
         justify-content: flex-start;
     }
 }
+
+.broadcast-scope-section {
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(52, 152, 219, 0.3);
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+}
+
+.broadcast-scope-section h4 {
+    color: #3498db;
+    margin-bottom: 12px;
+    font-size: 14px;
+}
+
+.scope-buttons {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+.scope-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 8px 12px;
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    color: #aaa;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 12px;
+    font-family: inherit;
+}
+
+.scope-btn:hover {
+    background: rgba(52, 152, 219, 0.2);
+    border-color: #3498db;
+    color: #fff;
+}
+
+.scope-btn.active {
+    background: rgba(52, 152, 219, 0.3);
+    border-color: #3498db;
+    color: #3498db;
+    font-weight: bold;
+}
+
+.scope-hint {
+    font-size: 12px;
+    color: #888;
+    margin-bottom: 12px;
+    padding: 8px;
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+}
+
+.district-selector {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 8px;
+}
+
+.district-select-option {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s;
+    font-size: 12px;
+}
+
+.district-select-option:hover {
+    background: rgba(233, 69, 96, 0.1);
+    border-color: rgba(233, 69, 96, 0.5);
+}
+
+.district-select-option.disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.district-select-option input[type="checkbox"] {
+    accent-color: #e94560;
+}
+
+.district-select-name {
+    flex: 1;
+    font-weight: bold;
+}
+
+.district-select-panic {
+    font-size: 10px;
+    color: #f39c12;
+    width: 100%;
+}
+
+.recommend-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border-radius: 4px;
+}
+
+.broadcast-category {
+    font-size: 10px;
+    padding: 2px 8px;
+    background: rgba(233, 69, 96, 0.2);
+    color: #e94560;
+    border-radius: 10px;
+    margin-left: 8px;
+}
+
+.broadcast-target {
+    font-size: 11px;
+    color: #3498db;
+    margin-top: 4px;
+}
+
+.district-panic {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 11px;
+    margin-top: 6px;
+    color: #f39c12;
+}
+
+.district-panic-bar {
+    flex: 1;
+    height: 6px;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.district-panic-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #f39c12, #e74c3c);
+    transition: width 0.3s;
+}
+
+.panic-value {
+    min-width: 35px;
+    text-align: right;
+    font-size: 10px;
+}
+
+.district-needs {
+    margin-top: 6px;
+    font-size: 11px;
+    color: #888;
+}
+
+.needs-label {
+    color: #666;
+}
+
+.needs-text {
+    color: #9b59b6;
+}
+
+.broadcast-result-districts {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 10px;
+    margin-top: 15px;
+    text-align: left;
+}
+
+.district-result-card {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 8px;
+    padding: 10px;
+}
+
+.district-result-card.need-matched {
+    border-color: rgba(46, 204, 113, 0.5);
+    background: rgba(46, 204, 113, 0.05);
+}
+
+.district-result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.district-result-name {
+    font-weight: bold;
+    font-size: 13px;
+}
+
+.need-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(46, 204, 113, 0.2);
+    color: #2ecc71;
+    border-radius: 4px;
+}
+
+.misinterpret-badge {
+    font-size: 10px;
+    padding: 2px 6px;
+    background: rgba(243, 156, 18, 0.2);
+    color: #f39c12;
+    border-radius: 4px;
+}
+
+.district-result-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 11px;
+}
+
+.district-result-stats .positive {
+    color: #2ecc71;
+}
+
+.district-result-stats .negative {
+    color: #e74c3c;
+}

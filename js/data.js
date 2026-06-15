@@ -95,16 +95,16 @@ const GameData = {
     ],
 
     broadcastMessages: [
-        { id: 'safe_zone', title: '📍 安全区通知', content: '城西区已确认安全，幸存者可前往临时避难所。', effects: { morale: 8, trust: 10, rumor: -5 }, power: 10 },
-        { id: 'food_depot', title: '🍞 物资发放', content: '今日下午三点在中心广场发放应急物资，请携带身份证明。', effects: { morale: 12, trust: 8 }, power: 8 },
-        { id: 'danger_warning', title: '⚠️ 危险警告', content: '工业区发现不明泄漏，请所有居民远离该区域。', effects: { morale: -3, trust: 15, rumor: -10 }, power: 12 },
-        { id: 'rescue_team', title: '🚑 救援队消息', content: '搜救队已救出12名被困幸存者，正在送往医疗点。', effects: { morale: 15, trust: 12 }, power: 8 },
-        { id: 'water_supply', title: '💧 供水恢复', content: '城东片区供水已恢复，请节约用水。', effects: { morale: 10, trust: 8 }, power: 6 },
-        { id: 'curfew', title: '🌙 宵禁通知', content: '今晚十点至明日六点实行宵禁，请勿外出。', effects: { morale: -5, trust: 5, rumor: 5 }, power: 5 },
-        { id: 'missing_person', title: '🔍 寻人启事', content: '寻找5岁女童小雨，穿红色外套，知情者请联系广播站。', effects: { morale: 3, trust: 10 }, power: 7 },
-        { id: 'weather_alert', title: '🌪️ 天气预警', content: '预计明日有强暴雨，请做好防护准备。', effects: { morale: -2, trust: 12 }, power: 6 },
-        { id: 'medical_help', title: '🏥 医疗援助', content: '临时医疗点24小时开放，有需要的居民可前往就诊。', effects: { morale: 8, trust: 10 }, power: 7 },
-        { id: 'power_restore', title: '⚡ 电力恢复', content: '城南片区今晚八点恢复供电。', effects: { morale: 12, trust: 10 }, power: 5 }
+        { id: 'safe_zone', title: '📍 安全区通知', content: '城西区已确认安全，幸存者可前往临时避难所。', effects: { morale: 8, trust: 10, rumor: -5 }, power: 10, category: 'safety', targetDistrict: 'west' },
+        { id: 'food_depot', title: '🍞 物资发放', content: '今日下午三点在中心广场发放应急物资，请携带身份证明。', effects: { morale: 12, trust: 8 }, power: 8, category: 'supplies', targetDistrict: 'center' },
+        { id: 'danger_warning', title: '⚠️ 危险警告', content: '工业区发现不明泄漏，请所有居民远离该区域。', effects: { morale: -3, trust: 15, rumor: -10 }, power: 12, category: 'danger', targetDistrict: 'north' },
+        { id: 'rescue_team', title: '🚑 救援队消息', content: '搜救队已救出12名被困幸存者，正在送往医疗点。', effects: { morale: 15, trust: 12 }, power: 8, category: 'rescue', targetDistrict: null },
+        { id: 'water_supply', title: '💧 供水恢复', content: '城东片区供水已恢复，请节约用水。', effects: { morale: 10, trust: 8 }, power: 6, category: 'supplies', targetDistrict: 'east' },
+        { id: 'curfew', title: '🌙 宵禁通知', content: '今晚十点至明日六点实行宵禁，请勿外出。', effects: { morale: -5, trust: 5, rumor: 5 }, power: 5, category: 'safety', targetDistrict: null },
+        { id: 'missing_person', title: '🔍 寻人启事', content: '寻找5岁女童小雨，穿红色外套，知情者请联系广播站。', effects: { morale: 3, trust: 10 }, power: 7, category: 'info', targetDistrict: null },
+        { id: 'weather_alert', title: '🌪️ 天气预警', content: '预计明日有强暴雨，请做好防护准备。', effects: { morale: -2, trust: 12 }, power: 6, category: 'weather', targetDistrict: null },
+        { id: 'medical_help', title: '🏥 医疗援助', content: '临时医疗点24小时开放，有需要的居民可前往就诊。', effects: { morale: 8, trust: 10 }, power: 7, category: 'medical', targetDistrict: 'center' },
+        { id: 'power_restore', title: '⚡ 电力恢复', content: '城南片区今晚八点恢复供电。', effects: { morale: 12, trust: 10 }, power: 5, category: 'supplies', targetDistrict: 'south' }
     ],
 
     equipmentList: [
@@ -116,11 +116,11 @@ const GameData = {
     ],
 
     districts: [
-        { id: 'east', name: '城东', trust: 60 },
-        { id: 'west', name: '城西', trust: 50 },
-        { id: 'south', name: '城南', trust: 55 },
-        { id: 'north', name: '城北', trust: 45 },
-        { id: 'center', name: '市中心', trust: 70 }
+        { id: 'east', name: '城东', trust: 60, panic: 30, needs: ['supplies', 'medical'], population: 800, description: '老旧居民区，物资相对匮乏' },
+        { id: 'west', name: '城西', trust: 50, panic: 45, needs: ['safety', 'info'], population: 600, description: '工业区附近，安全隐患较多' },
+        { id: 'south', name: '城南', trust: 55, panic: 35, needs: ['supplies', 'rescue'], population: 700, description: '受灾较重，救援需求大' },
+        { id: 'north', name: '城北', trust: 45, panic: 50, needs: ['safety', 'medical'], population: 500, description: '偏远区域，信息闭塞' },
+        { id: 'center', name: '市中心', trust: 70, panic: 25, needs: ['info', 'supplies'], population: 1200, description: '避难所集中地，人口密集' }
     ],
 
     survivorNames: ['李明', '王芳', '张伟', '刘洋', '陈静', '杨帆', '赵磊', '周婷', '吴强', '郑雪'],

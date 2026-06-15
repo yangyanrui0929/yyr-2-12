@@ -43,10 +43,15 @@ class UndergroundRadioGame {
                 evening: null
             },
             selectedBroadcast: null,
+            broadcastScope: {
+                type: 'all',
+                districts: []
+            },
             currentQuestion: null,
             answeredQuestions: [],
             rumors: [],
             settlementHistory: [],
+            broadcastHistory: [],
             todayActions: {
                 broadcastDone: false,
                 qaDone: 0,
@@ -105,13 +110,39 @@ class UndergroundRadioGame {
         if (saved) {
             try {
                 this.gameState = JSON.parse(saved);
+                this.migrateGameState();
                 this.showEvent('读取存档', '成功读取游戏存档！', []);
             } catch (e) {
                 this.gameState = this.getDefaultState();
+                this.generateDailyRumors();
             }
         } else {
             this.gameState = this.getDefaultState();
             this.generateDailyRumors();
+        }
+    }
+
+    migrateGameState() {
+        const defaultState = this.getDefaultState();
+        
+        if (!this.gameState.broadcastScope) {
+            this.gameState.broadcastScope = defaultState.broadcastScope;
+        }
+        if (!this.gameState.broadcastHistory) {
+            this.gameState.broadcastHistory = [];
+        }
+        if (!this.gameState.districts || this.gameState.districts.length === 0) {
+            this.gameState.districts = JSON.parse(JSON.stringify(GameData.districts));
+        } else {
+            this.gameState.districts.forEach((district, index) => {
+                const defaultDistrict = GameData.districts[index];
+                if (defaultDistrict) {
+                    if (district.panic === undefined) district.panic = defaultDistrict.panic;
+                    if (!district.needs) district.needs = [...defaultDistrict.needs];
+                    if (district.population === undefined) district.population = defaultDistrict.population;
+                    if (!district.description) district.description = defaultDistrict.description;
+                }
+            });
         }
     }
 
@@ -138,6 +169,23 @@ class UndergroundRadioGame {
         document.getElementById('doBroadcastBtn').addEventListener('click', () => this.doBroadcast());
         document.getElementById('doRepairBtn').addEventListener('click', () => this.doRepair());
         document.getElementById('suppressRumorBtn').addEventListener('click', () => this.suppressRumor());
+
+        document.querySelectorAll('.scope-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.scope-btn').forEach(b => b.classList.remove('active'));
+                e.target.classList.add('active');
+                
+                const scope = e.target.dataset.scope;
+                this.setBroadcastScope(scope);
+                
+                const hints = {
+                    all: '全城广播：覆盖所有城区，耗电量正常，但容易引发误读和恐慌',
+                    single: '单区域定向：只覆盖一个城区，耗电量增加50%，但更精准，减少无关恐慌',
+                    multi: '多区域定向：覆盖多个城区，耗电量随区域数量增加，精准度介于两者之间'
+                };
+                document.getElementById('scopeHint').textContent = hints[scope] || '';
+            });
+        });
 
         ['power', 'noise', 'rumor', 'fatigue', 'morale'].forEach(stat => {
             const slider = document.getElementById(stat + 'ThresholdSlider');
@@ -258,17 +306,43 @@ class UndergroundRadioGame {
         this.gameState.districts.forEach(district => {
             const item = document.createElement('div');
             item.className = 'district-item';
+            
+            const needsText = district.needs.map(n => this.getNeedName(n)).join('、');
+            
             item.innerHTML = `
                 <div class="district-name">
                     <span>${district.name}</span>
-                    <span style="color:#3498db">${district.trust}%</span>
+                    <span style="color:#3498db">信任 ${district.trust}%</span>
                 </div>
                 <div class="district-bar">
                     <div class="district-bar-fill" style="width:${district.trust}%"></div>
                 </div>
+                <div class="district-panic">
+                    <span>恐慌度</span>
+                    <div class="district-panic-bar">
+                        <div class="district-panic-fill" style="width:${district.panic}%"></div>
+                    </div>
+                    <span class="panic-value">${district.panic}%</span>
+                </div>
+                <div class="district-needs" title="${district.description}">
+                    <span class="needs-label">需求:</span>
+                    <span class="needs-text">${needsText}</span>
+                </div>
             `;
             container.appendChild(item);
         });
+    }
+
+    getNeedName(need) {
+        const names = {
+            safety: '安全',
+            supplies: '物资',
+            medical: '医疗',
+            info: '信息',
+            rescue: '救援',
+            weather: '天气'
+        };
+        return names[need] || need;
     }
 
     renderSchedule() {
@@ -319,9 +393,12 @@ class UndergroundRadioGame {
                 item.classList.add('selected');
             }
             
+            const categoryBadge = `<span class="broadcast-category">${this.getCategoryName(msg.category)}</span>`;
+            
             item.innerHTML = `
-                <div class="broadcast-title">${msg.title}</div>
+                <div class="broadcast-title">${msg.title} ${categoryBadge}</div>
                 <div class="broadcast-desc">${msg.content}</div>
+                ${msg.targetDistrict ? `<div class="broadcast-target">相关区域: ${this.getDistrictName(msg.targetDistrict)}</div>` : ''}
             `;
             
             item.addEventListener('click', () => this.selectBroadcast(msg.id));
@@ -330,6 +407,128 @@ class UndergroundRadioGame {
 
         document.getElementById('doBroadcastBtn').disabled = 
             !this.gameState.selectedBroadcast || this.gameState.todayActions.broadcastDone;
+
+        this.renderBroadcastScope();
+    }
+
+    renderBroadcastScope() {
+        const { type, districts } = this.gameState.broadcastScope;
+        const msg = GameData.broadcastMessages.find(m => m.id === this.gameState.selectedBroadcast);
+        
+        let previewHtml = '<p>请选择要播报的消息...</p>';
+        
+        if (msg) {
+            const basePower = msg.power;
+            let powerMultiplier = 1;
+            let scopeText = '';
+            
+            if (type === 'all') {
+                scopeText = '全城广播';
+                powerMultiplier = 1;
+            } else if (type === 'single' && districts.length === 1) {
+                const d = this.gameState.districts.find(x => x.id === districts[0]);
+                scopeText = d ? `${d.name}定向广播` : '单区域广播';
+                powerMultiplier = 1.5;
+            } else if (type === 'multi') {
+                scopeText = `${districts.length}个城区定向广播`;
+                powerMultiplier = 1.3 + (districts.length * 0.1);
+            }
+            
+            const totalPower = Math.round(basePower * powerMultiplier);
+            
+            previewHtml = `
+                <h4 style="color:#e94560; margin-bottom:10px">${msg.title}</h4>
+                <p>${msg.content}</p>
+                <p style="color:#888; font-size:12px; margin-top:10px">
+                    覆盖范围: <strong style="color:#fff">${scopeText}</strong> | 
+                    耗电量: ⚡${totalPower}
+                    ${type !== 'all' ? '<br><span style="color:#2ecc71">定向广播: 减少无关恐慌，更精准传递信息</span>' : '<br><span style="color:#f39c12">全城广播: 传播速度快，但更容易引发误读和恐慌</span>'}
+                </p>
+            `;
+        }
+        
+        document.getElementById('broadcastPreview').innerHTML = previewHtml;
+
+        const districtSelector = document.getElementById('districtSelector');
+        if (districtSelector) {
+            districtSelector.innerHTML = '';
+            this.gameState.districts.forEach(district => {
+                const label = document.createElement('label');
+                label.className = 'district-select-option';
+                if (type === 'all') {
+                    label.classList.add('disabled');
+                }
+                
+                const isChecked = type === 'all' || districts.includes(district.id);
+                const isRecommended = msg && msg.targetDistrict === district.id;
+                
+                label.innerHTML = `
+                    <input type="checkbox" data-district="${district.id}" ${isChecked ? 'checked' : ''} ${type === 'all' ? 'disabled' : ''}>
+                    <span class="district-select-name">${district.name}</span>
+                    ${isRecommended ? '<span class="recommend-badge">推荐</span>' : ''}
+                    <span class="district-select-panic">恐慌 ${district.panic}%</span>
+                `;
+                
+                label.querySelector('input').addEventListener('change', (e) => {
+                    this.toggleDistrict(district.id, e.target.checked);
+                });
+                
+                districtSelector.appendChild(label);
+            });
+        }
+    }
+
+    getCategoryName(category) {
+        const names = {
+            safety: '安全',
+            supplies: '物资',
+            danger: '危险',
+            rescue: '救援',
+            medical: '医疗',
+            info: '信息',
+            weather: '天气'
+        };
+        return names[category] || category;
+    }
+
+    getDistrictName(id) {
+        const d = this.gameState.districts.find(x => x.id === id);
+        return d ? d.name : id;
+    }
+
+    setBroadcastScope(type) {
+        this.gameState.broadcastScope.type = type;
+        if (type === 'all') {
+            this.gameState.broadcastScope.districts = [];
+        } else if (type === 'single' && this.gameState.broadcastScope.districts.length !== 1) {
+            this.gameState.broadcastScope.districts = this.gameState.broadcastScope.districts.slice(0, 1);
+            if (this.gameState.broadcastScope.districts.length === 0) {
+                this.gameState.broadcastScope.districts = [this.gameState.districts[0].id];
+            }
+        }
+        this.renderBroadcastScope();
+    }
+
+    toggleDistrict(districtId, checked) {
+        const scope = this.gameState.broadcastScope;
+        
+        if (scope.type === 'all') return;
+        
+        if (checked) {
+            if (scope.type === 'single') {
+                scope.districts = [districtId];
+            } else if (!scope.districts.includes(districtId)) {
+                scope.districts.push(districtId);
+            }
+        } else {
+            scope.districts = scope.districts.filter(id => id !== districtId);
+        }
+        
+        if (scope.type === 'single' && scope.districts.length === 0) {
+            scope.districts = [this.gameState.districts[0].id];
+        }
+        
+        this.renderBroadcastScope();
     }
 
     renderEquipment() {
@@ -499,20 +698,6 @@ class UndergroundRadioGame {
 
     selectBroadcast(broadcastId) {
         this.gameState.selectedBroadcast = broadcastId;
-        
-        const msg = GameData.broadcastMessages.find(m => m.id === broadcastId);
-        const preview = document.getElementById('broadcastPreview');
-        
-        const effectsText = Object.entries(msg.effects)
-            .map(([k, v]) => `${this.getStatName(k)} ${v > 0 ? '+' : ''}${v}`)
-            .join(' | ');
-        
-        preview.innerHTML = `
-            <h4 style="color:#e94560; margin-bottom:10px">${msg.title}</h4>
-            <p>${msg.content}</p>
-            <p style="color:#888; font-size:12px; margin-top:10px">效果: ${effectsText} | 耗电: ⚡${msg.power}</p>
-        `;
-        
         this.renderBroadcasts();
     }
 
@@ -520,24 +705,181 @@ class UndergroundRadioGame {
         const msg = GameData.broadcastMessages.find(m => m.id === this.gameState.selectedBroadcast);
         if (!msg || this.gameState.todayActions.broadcastDone) return;
 
-        if (this.gameState.status.power < msg.power) {
-            this.showEvent('电力不足', '电量不足，无法进行播报！', [{ text: '⚡电量不足', type: 'negative' }]);
+        const { type, districts } = this.gameState.broadcastScope;
+        
+        let targetDistricts = [];
+        if (type === 'all') {
+            targetDistricts = [...this.gameState.districts];
+        } else {
+            targetDistricts = this.gameState.districts.filter(d => districts.includes(d.id));
+        }
+        
+        if (targetDistricts.length === 0) {
+            this.showEvent('未选择区域', '请至少选择一个城区进行广播！', [{ text: '请选择目标区域', type: 'negative' }]);
             return;
         }
 
-        this.applyEffects(msg.effects);
-        this.gameState.status.power -= msg.power;
+        let powerMultiplier = 1;
+        if (type === 'single') {
+            powerMultiplier = 1.5;
+        } else if (type === 'multi') {
+            powerMultiplier = 1.3 + (districts.length * 0.1);
+        }
+        
+        const totalPower = Math.round(msg.power * powerMultiplier);
+
+        if (this.gameState.status.power < totalPower) {
+            this.showEvent('电力不足', `电量不足，需要 ${totalPower} 电量！`, [{ text: `⚡电量不足，需要${totalPower}`, type: 'negative' }]);
+            return;
+        }
+
+        const districtResults = this.calculateDistrictEffects(msg, targetDistricts, type);
+        
+        let totalMorale = 0;
+        let totalRumor = 0;
+        let totalTrust = 0;
+        let totalPanic = 0;
+
+        districtResults.forEach(result => {
+            const district = this.gameState.districts.find(d => d.id === result.districtId);
+            if (district) {
+                district.trust = Math.max(0, Math.min(100, district.trust + result.trustChange));
+                district.panic = Math.max(0, Math.min(100, district.panic + result.panicChange));
+                totalTrust += result.trustChange;
+                totalPanic += result.panicChange;
+                totalMorale += result.moraleChange;
+                totalRumor += result.rumorChange;
+            }
+        });
+
+        const avgMorale = Math.round(totalMorale / targetDistricts.length);
+        const avgRumor = Math.round(totalRumor / targetDistricts.length);
+        
+        this.gameState.status.morale = Math.max(0, Math.min(100, this.gameState.status.morale + avgMorale));
+        this.gameState.status.rumor = Math.max(0, Math.min(100, this.gameState.status.rumor + avgRumor));
+        this.gameState.status.power -= totalPower;
         this.gameState.todayActions.broadcastDone = true;
 
-        const effectTags = Object.entries(msg.effects)
-            .filter(([_, v]) => v !== 0)
-            .map(([k, v]) => ({
-                text: `${this.getStatName(k)} ${v > 0 ? '+' : ''}${v}`,
-                type: v > 0 ? 'positive' : 'negative'
-            }));
+        const broadcastRecord = {
+            day: this.gameState.day,
+            messageId: msg.id,
+            messageTitle: msg.title,
+            scopeType: type,
+            targetDistricts: targetDistricts.map(d => d.id),
+            powerUsed: totalPower,
+            districtResults: districtResults,
+            avgMorale: avgMorale,
+            avgRumor: avgRumor
+        };
+        this.gameState.broadcastHistory.push(broadcastRecord);
 
-        this.showEvent('播报完成', `已播报：${msg.title}`, effectTags);
+        this.showBroadcastResult(msg, districtResults, totalPower, type);
         this.renderAll();
+    }
+
+    calculateDistrictEffects(msg, districts, scopeType) {
+        const results = [];
+        
+        districts.forEach(district => {
+            const baseEffects = { ...msg.effects };
+            
+            let trustMultiplier = 0.5 + (district.trust / 100);
+            
+            let needMultiplier = 1;
+            if (district.needs && district.needs.includes(msg.category)) {
+                needMultiplier = 1.5;
+            } else {
+                needMultiplier = 0.6;
+            }
+            
+            let panicEffect = 0;
+            let misinterpretChance = 0;
+            
+            if (scopeType === 'all') {
+                misinterpretChance = 0.3;
+                if (msg.category === 'danger' || msg.category === 'weather') {
+                    panicEffect = 8;
+                } else if (!district.needs.includes(msg.category)) {
+                    panicEffect = 3;
+                }
+            } else {
+                misinterpretChance = 0.1;
+                if (msg.category === 'danger') {
+                    panicEffect = district.needs.includes(msg.category) ? 5 : -2;
+                } else if (district.needs.includes(msg.category)) {
+                    panicEffect = -5;
+                }
+            }
+            
+            if (Math.random() < misinterpretChance) {
+                trustMultiplier *= 0.7;
+                if (baseEffects.morale > 0) baseEffects.morale = Math.round(baseEffects.morale * 0.5);
+                if (baseEffects.rumor < 0) baseEffects.rumor = Math.round(baseEffects.rumor * 0.3);
+                panicEffect += 5;
+            }
+            
+            const trustChange = Math.round((baseEffects.trust || 0) * trustMultiplier * needMultiplier);
+            const moraleChange = Math.round((baseEffects.morale || 0) * trustMultiplier * needMultiplier);
+            const rumorChange = Math.round((baseEffects.rumor || 0) * trustMultiplier);
+            const finalPanicChange = panicEffect;
+
+            results.push({
+                districtId: district.id,
+                districtName: district.name,
+                trustChange: trustChange,
+                moraleChange: moraleChange,
+                rumorChange: rumorChange,
+                panicChange: finalPanicChange,
+                isTargeted: msg.targetDistrict === district.id,
+                isNeedMatched: district.needs.includes(msg.category),
+                misinterpreted: Math.random() < misinterpretChance
+            });
+        });
+        
+        return results;
+    }
+
+    showBroadcastResult(msg, districtResults, powerUsed, scopeType) {
+        let resultsHtml = '<div class="broadcast-result-districts">';
+        
+        districtResults.forEach(result => {
+            const trustClass = result.trustChange >= 0 ? 'positive' : 'negative';
+            const panicClass = result.panicChange <= 0 ? 'positive' : 'negative';
+            const moraleClass = result.moraleChange >= 0 ? 'positive' : 'negative';
+            
+            resultsHtml += `
+                <div class="district-result-card ${result.isNeedMatched ? 'need-matched' : ''}">
+                    <div class="district-result-header">
+                        <span class="district-result-name">${result.districtName}</span>
+                        ${result.isNeedMatched ? '<span class="need-badge">需求匹配</span>' : ''}
+                        ${result.misinterpreted ? '<span class="misinterpret-badge">存在误读</span>' : ''}
+                    </div>
+                    <div class="district-result-stats">
+                        <span class="${trustClass}">信任 ${result.trustChange >= 0 ? '+' : ''}${result.trustChange}</span>
+                        <span class="${moraleClass}">民心 ${result.moraleChange >= 0 ? '+' : ''}${result.moraleChange}</span>
+                        <span class="${panicClass}">恐慌 ${result.panicChange >= 0 ? '+' : ''}${result.panicChange}</span>
+                    </div>
+                </div>
+            `;
+        });
+        
+        resultsHtml += '</div>';
+        
+        const scopeText = scopeType === 'all' ? '全城广播' : 
+                          scopeType === 'single' ? '单区域定向广播' : 
+                          `${districtResults.length}个城区定向广播`;
+
+        document.getElementById('modalTitle').textContent = '播报完成 - ' + msg.title;
+        document.getElementById('modalText').innerHTML = `
+            <p>覆盖范围: <strong>${scopeText}</strong></p>
+            <p>消耗电量: ⚡${powerUsed}</p>
+            <p style="margin-top:10px; font-size:12px; color:#888">
+                ${scopeType !== 'all' ? '🎯 定向广播精准送达，减少了无关恐慌' : '📡 全城广播覆盖广，但部分区域存在误读'}
+            </p>
+            ${resultsHtml}
+        `;
+        document.getElementById('modalEffects').innerHTML = '';
+        document.getElementById('eventModal').classList.add('active');
     }
 
     generateQuestion() {
@@ -749,6 +1091,39 @@ class UndergroundRadioGame {
                 d.trust = Math.max(0, d.trust - 5);
             });
         }
+
+        this.gameState.districts.forEach(district => {
+            let panicChange = 0;
+            
+            if (this.gameState.status.rumor >= this.gameState.thresholds.rumor) {
+                panicChange += 5;
+            }
+            
+            if (this.gameState.status.morale <= this.gameState.thresholds.morale) {
+                panicChange += 5;
+            }
+            
+            if (this.gameState.resources.food < this.gameState.survivors.length * 2) {
+                panicChange += 3;
+            }
+            
+            if (district.trust < 40) {
+                panicChange += 3;
+            } else if (district.trust > 70) {
+                panicChange -= 3;
+            }
+            
+            panicChange += Math.floor(Math.random() * 5) - 2;
+            
+            district.panic = Math.max(0, Math.min(100, district.panic + panicChange));
+            
+            if (district.panic >= 70) {
+                dayEffects.morale -= 3;
+                dayEffects.rumor += 3;
+            } else if (district.panic <= 20) {
+                dayEffects.morale += 2;
+            }
+        });
 
         if (this.gameState.resources.food < 0) {
             dayEffects.morale -= 20;
