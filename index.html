@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>地下广播站 - 生存经营</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="game-container">
+        <header class="top-bar">
+            <h1>📻 地下广播站</h1>
+            <div class="status-bar">
+                <div class="status-item" title="电量">
+                    <span class="status-icon">⚡</span>
+                    <span class="status-label">电量</span>
+                    <div class="status-bar-wrap"><div class="status-fill" id="powerFill"></div></div>
+                    <span class="status-value" id="powerValue">100</span>
+                </div>
+                <div class="status-item" title="噪声">
+                    <span class="status-icon">🔊</span>
+                    <span class="status-label">噪声</span>
+                    <div class="status-bar-wrap"><div class="status-fill noise" id="noiseFill"></div></div>
+                    <span class="status-value" id="noiseValue">0</span>
+                </div>
+                <div class="status-item" title="谣言">
+                    <span class="status-icon">🗣️</span>
+                    <span class="status-label">谣言</span>
+                    <div class="status-bar-wrap"><div class="status-fill rumor" id="rumorFill"></div></div>
+                    <span class="status-value" id="rumorValue">0</span>
+                </div>
+                <div class="status-item" title="疲劳">
+                    <span class="status-icon">😴</span>
+                    <span class="status-label">疲劳</span>
+                    <div class="status-bar-wrap"><div class="status-fill fatigue" id="fatigueFill"></div></div>
+                    <span class="status-value" id="fatigueValue">0</span>
+                </div>
+                <div class="status-item" title="民心">
+                    <span class="status-icon">❤️</span>
+                    <span class="status-label">民心</span>
+                    <div class="status-bar-wrap"><div class="status-fill morale" id="moraleFill"></div></div>
+                    <span class="status-value" id="moraleValue">50</span>
+                </div>
+            </div>
+            <div class="day-info">
+                <span>第 <strong id="dayCount">1</strong> 天</span>
+                <button id="endDayBtn" class="btn btn-primary">结束今日</button>
+            </div>
+        </header>
+
+        <div class="main-content">
+            <aside class="left-panel">
+                <div class="panel-section">
+                    <h3>📦 物资储备</h3>
+                    <div class="resource-list">
+                        <div class="resource-item">
+                            <span>🍞 食物</span>
+                            <span id="foodCount">20</span>
+                        </div>
+                        <div class="resource-item">
+                            <span>🔋 电池</span>
+                            <span id="batteryCount">10</span>
+                        </div>
+                        <div class="resource-item">
+                            <span>🔧 零件</span>
+                            <span id="partsCount">5</span>
+                        </div>
+                        <div class="resource-item">
+                            <span>💊 药品</span>
+                            <span id="medicineCount">3</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>👥 幸存者</h3>
+                    <div id="survivorList" class="survivor-list"></div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>🏙️ 城区信任度</h3>
+                    <div id="districtTrust" class="district-trust"></div>
+                </div>
+            </aside>
+
+            <main class="center-panel">
+                <div class="tab-buttons">
+                    <button class="tab-btn active" data-tab="schedule">📅 节目编排</button>
+                    <button class="tab-btn" data-tab="broadcast">📢 播报消息</button>
+                    <button class="tab-btn" data-tab="qa">❓ 听众问答</button>
+                    <button class="tab-btn" data-tab="repair">🔧 设备维修</button>
+                    <button class="tab-btn" data-tab="rumor">🚫 谣言压制</button>
+                    <button class="tab-btn" data-tab="settlement">📊 结算记录</button>
+                </div>
+
+                <div class="tab-content">
+                    <div id="schedule" class="tab-pane active">
+                        <h3>今日节目编排</h3>
+                        <div class="program-slot" data-slot="morning">
+                            <div class="slot-header">
+                                <span>🌅 早间时段 (06:00-12:00)</span>
+                                <span class="slot-program" id="slotMorning">未安排</span>
+                            </div>
+                            <div class="program-options" id="morningOptions"></div>
+                        </div>
+                        <div class="program-slot" data-slot="afternoon">
+                            <div class="slot-header">
+                                <span>☀️ 午间时段 (12:00-18:00)</span>
+                                <span class="slot-program" id="slotAfternoon">未安排</span>
+                            </div>
+                            <div class="program-options" id="afternoonOptions"></div>
+                        </div>
+                        <div class="program-slot" data-slot="evening">
+                            <div class="slot-header">
+                                <span>🌙 晚间时段 (18:00-24:00)</span>
+                                <span class="slot-program" id="slotEvening">未安排</span>
+                            </div>
+                            <div class="program-options" id="eveningOptions"></div>
+                        </div>
+                    </div>
+
+                    <div id="broadcast" class="tab-pane">
+                        <h3>选择播报内容</h3>
+                        <div class="broadcast-list" id="broadcastList"></div>
+                        <div class="broadcast-preview" id="broadcastPreview">
+                            <p>请选择要播报的消息...</p>
+                        </div>
+                        <button id="doBroadcastBtn" class="btn btn-primary" disabled>开始播报</button>
+                    </div>
+
+                    <div id="qa" class="tab-pane">
+                        <h3>听众问答</h3>
+                        <div id="questionArea" class="question-area">
+                            <p class="question-text" id="questionText">等待听众提问...</p>
+                            <div class="options" id="answerOptions"></div>
+                        </div>
+                        <div class="question-history" id="questionHistory">
+                            <h4>已回答问题</h4>
+                            <div id="historyList"></div>
+                        </div>
+                    </div>
+
+                    <div id="repair" class="tab-pane">
+                        <h3>设备状态</h3>
+                        <div id="equipmentList" class="equipment-list"></div>
+                        <div class="repair-actions">
+                            <h4>分配维修任务</h4>
+                            <div class="repair-assign">
+                                <select id="repairEquipment"></select>
+                                <select id="repairSurvivor"></select>
+                                <button id="doRepairBtn" class="btn btn-primary">开始维修</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="rumor" class="tab-pane">
+                        <h3>当前谣言</h3>
+                        <div id="rumorList" class="rumor-list"></div>
+                        <div class="rumor-actions">
+                            <h4>压制谣言</h4>
+                            <select id="rumorToSuppress"></select>
+                            <button id="suppressRumorBtn" class="btn btn-warning">发布澄清</button>
+                        </div>
+                    </div>
+
+                    <div id="settlement" class="tab-pane">
+                        <h3>每日结算记录</h3>
+                        <div id="settlementList" class="settlement-list"></div>
+                    </div>
+                </div>
+            </main>
+
+            <aside class="right-panel">
+                <div class="panel-section">
+                    <h3>⚠️ 状态阈值</h3>
+                    <div class="threshold-list">
+                        <div class="threshold-item">
+                            <span>电量警戒线</span>
+                            <span class="threshold-value" id="powerThreshold">20</span>
+                        </div>
+                        <div class="threshold-item">
+                            <span>噪声警戒线</span>
+                            <span class="threshold-value" id="noiseThreshold">70</span>
+                        </div>
+                        <div class="threshold-item">
+                            <span>谣言警戒线</span>
+                            <span class="threshold-value" id="rumorThreshold">70</span>
+                        </div>
+                        <div class="threshold-item">
+                            <span>疲劳警戒线</span>
+                            <span class="threshold-value" id="fatigueThreshold">70</span>
+                        </div>
+                        <div class="threshold-item">
+                            <span>民心警戒线</span>
+                            <span class="threshold-value" id="moraleThreshold">30</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>🎛️ 阈值调整</h3>
+                    <div class="threshold-adjust">
+                        <label>电量警戒线: <span id="powerThresholdVal">20</span></label>
+                        <input type="range" id="powerThresholdSlider" min="0" max="100" value="20">
+                    </div>
+                    <div class="threshold-adjust">
+                        <label>噪声警戒线: <span id="noiseThresholdVal">70</span></label>
+                        <input type="range" id="noiseThresholdSlider" min="0" max="100" value="70">
+                    </div>
+                    <div class="threshold-adjust">
+                        <label>谣言警戒线: <span id="rumorThresholdVal">70</span></label>
+                        <input type="range" id="rumorThresholdSlider" min="0" max="100" value="70">
+                    </div>
+                    <div class="threshold-adjust">
+                        <label>疲劳警戒线: <span id="fatigueThresholdVal">70</span></label>
+                        <input type="range" id="fatigueThresholdSlider" min="0" max="100" value="70">
+                    </div>
+                    <div class="threshold-adjust">
+                        <label>民心警戒线: <span id="moraleThresholdVal">30</span></label>
+                        <input type="range" id="moraleThresholdSlider" min="0" max="100" value="30">
+                    </div>
+                </div>
+
+                <div class="panel-section">
+                    <h3>💾 存档管理</h3>
+                    <button id="saveBtn" class="btn btn-secondary">保存游戏</button>
+                    <button id="loadBtn" class="btn btn-secondary">读取存档</button>
+                    <button id="resetBtn" class="btn btn-danger">重新开始</button>
+                </div>
+            </aside>
+        </div>
+
+        <div id="eventModal" class="modal">
+            <div class="modal-content">
+                <h2 id="modalTitle">事件</h2>
+                <p id="modalText">事件内容</p>
+                <div id="modalEffects" class="modal-effects"></div>
+                <button id="modalCloseBtn" class="btn btn-primary">确定</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/game.js"></script>
+    <script src="js/main.js"></script>
+</body>
+</html>

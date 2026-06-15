@@ -1,0 +1,9 @@
+{
+    "name":  "2-12",
+    "private":  true,
+    "version":  "0.0.0",
+    "scripts":  {
+                    "dev":  "node server.js",
+                    "start":  "node server.js"
+                }
+}
