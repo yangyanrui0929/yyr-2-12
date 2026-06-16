@@ -462,10 +462,23 @@ class UndergroundRadioGame {
                 const isChecked = type === 'all' || districts.includes(district.id);
                 const isRecommended = msg && msg.targetDistrict === district.id;
                 
+                let panicTier = 'low';
+                if (district.panic >= 80) panicTier = 'critical';
+                else if (district.panic >= 60) panicTier = 'high';
+                else if (district.panic >= 35) panicTier = 'medium';
+                
+                const panicTierLabels = {
+                    critical: '<span class="panic-tier-badge tier-critical">危急</span>',
+                    high: '<span class="panic-tier-badge tier-high">高涨</span>',
+                    medium: '<span class="panic-tier-badge tier-medium">一般</span>',
+                    low: '<span class="panic-tier-badge tier-low">平息</span>'
+                };
+                
                 label.innerHTML = `
                     <input type="checkbox" data-district="${district.id}" ${isChecked ? 'checked' : ''} ${type === 'all' ? 'disabled' : ''}>
                     <span class="district-select-name">${district.name}</span>
                     ${isRecommended ? '<span class="recommend-badge">推荐</span>' : ''}
+                    ${panicTierLabels[panicTier] || ''}
                     <span class="district-select-panic">恐慌 ${district.panic}%</span>
                 `;
                 
@@ -782,6 +795,12 @@ class UndergroundRadioGame {
         
         districts.forEach(district => {
             const baseEffects = { ...msg.effects };
+            const panicLevel = district.panic;
+            
+            let panicTier = 'low';
+            if (panicLevel >= 80) panicTier = 'critical';
+            else if (panicLevel >= 60) panicTier = 'high';
+            else if (panicLevel >= 35) panicTier = 'medium';
             
             let trustMultiplier = 0.5 + (district.trust / 100);
             
@@ -792,36 +811,158 @@ class UndergroundRadioGame {
                 needMultiplier = 0.6;
             }
             
-            let panicEffect = 0;
+            const panicTierModifiers = {
+                low: {
+                    trust: 1.2,
+                    morale: 1.15,
+                    rumorPositive: 0.7,
+                    rumorNegative: 1.3,
+                    panicGood: 1.3,
+                    panicBad: 0.7,
+                    misinterpret: 0.6
+                },
+                medium: {
+                    trust: 1.0,
+                    morale: 1.0,
+                    rumorPositive: 1.0,
+                    rumorNegative: 1.0,
+                    panicGood: 1.0,
+                    panicBad: 1.0,
+                    misinterpret: 1.0
+                },
+                high: {
+                    trust: 0.75,
+                    morale: 0.8,
+                    rumorPositive: 1.4,
+                    rumorNegative: 0.7,
+                    panicGood: 0.8,
+                    panicBad: 1.3,
+                    misinterpret: 1.4
+                },
+                critical: {
+                    trust: 0.5,
+                    morale: 0.6,
+                    rumorPositive: 1.8,
+                    rumorNegative: 0.5,
+                    panicGood: 0.6,
+                    panicBad: 1.6,
+                    misinterpret: 1.8
+                }
+            };
+            
+            const tm = panicTierModifiers[panicTier];
+            
+            let categoryPanicModifier = 1;
+            if (msg.category === 'danger' || msg.category === 'weather') {
+                if (panicTier === 'critical' || panicTier === 'high') {
+                    categoryPanicModifier = 1.5;
+                }
+            } else if (msg.category === 'safety' || msg.category === 'rescue' || msg.category === 'medical') {
+                if (panicTier === 'critical' || panicTier === 'high') {
+                    categoryPanicModifier = 1.4;
+                } else if (panicTier === 'low') {
+                    categoryPanicModifier = 0.8;
+                }
+            } else if (msg.category === 'supplies') {
+                if (panicTier === 'critical' || panicTier === 'high') {
+                    categoryPanicModifier = 1.3;
+                }
+            }
+            
+            let panicTrustFactor = tm.trust;
+            if (baseEffects.trust > 0) {
+                panicTrustFactor *= (1 - (panicLevel / 200));
+                if (panicTier === 'critical') panicTrustFactor *= 0.85;
+            } else if (baseEffects.trust < 0) {
+                panicTrustFactor = 1 + (panicLevel / 180);
+                if (panicTier === 'critical') panicTrustFactor *= 1.2;
+            }
+            
+            let panicMoraleFactor = tm.morale;
+            if (baseEffects.morale > 0) {
+                panicMoraleFactor *= (1 - (panicLevel / 220));
+                if (district.needs.includes(msg.category)) {
+                    panicMoraleFactor *= 1.15;
+                }
+            } else if (baseEffects.morale < 0) {
+                panicMoraleFactor = 1 + (panicLevel / 280);
+            }
+            
+            let panicRumorFactor = 1;
+            if (baseEffects.rumor > 0) {
+                panicRumorFactor = tm.rumorPositive * (1 + panicLevel / 180);
+            } else if (baseEffects.rumor < 0) {
+                panicRumorFactor = tm.rumorNegative * (1 - panicLevel / 280);
+                if (panicTier === 'critical') panicRumorFactor *= 0.7;
+            }
+            
+            let panicSelfChange = 0;
+            if (panicTier === 'critical') {
+                panicSelfChange += 4;
+            } else if (panicTier === 'high') {
+                panicSelfChange += 2;
+            } else if (panicTier === 'medium') {
+                panicSelfChange += 0;
+            } else {
+                panicSelfChange -= 1;
+            }
+            
+            if (msg.category === 'danger' || msg.category === 'weather') {
+                if (panicTier === 'critical') panicSelfChange += 8;
+                else if (panicTier === 'high') panicSelfChange += 5;
+                else if (panicTier === 'medium') panicSelfChange += 2;
+            }
+            
+            if (msg.category === 'safety' || msg.category === 'rescue' || msg.category === 'medical') {
+                if (panicTier === 'critical') panicSelfChange -= Math.round(panicLevel / 12);
+                else if (panicTier === 'high') panicSelfChange -= Math.round(panicLevel / 16);
+                else if (panicTier === 'medium') panicSelfChange -= Math.round(panicLevel / 22);
+                else panicSelfChange -= Math.round(panicLevel / 30);
+            }
+            
+            if (msg.category === 'supplies' && district.needs.includes('supplies')) {
+                if (panicTier === 'critical' || panicTier === 'high') panicSelfChange -= 4;
+                else if (panicTier === 'medium') panicSelfChange -= 2;
+            }
+            
+            panicSelfChange = Math.round(panicSelfChange * categoryPanicModifier);
+            
+            let scopePanicEffect = 0;
             let misinterpretChance = 0;
             
             if (scopeType === 'all') {
-                misinterpretChance = 0.3;
+                misinterpretChance = (0.12 + panicLevel / 280) * tm.misinterpret;
                 if (msg.category === 'danger' || msg.category === 'weather') {
-                    panicEffect = 8;
+                    scopePanicEffect = 3 + Math.round(panicLevel / 18) * categoryPanicModifier;
                 } else if (!district.needs.includes(msg.category)) {
-                    panicEffect = 3;
+                    scopePanicEffect = 1 + Math.round(panicLevel / 35);
                 }
             } else {
-                misinterpretChance = 0.1;
+                misinterpretChance = (0.04 + panicLevel / 480) * tm.misinterpret;
                 if (msg.category === 'danger') {
-                    panicEffect = district.needs.includes(msg.category) ? 5 : -2;
+                    scopePanicEffect = district.needs.includes(msg.category) 
+                        ? Math.round((2 + panicLevel / 28) * categoryPanicModifier) 
+                        : -2;
                 } else if (district.needs.includes(msg.category)) {
-                    panicEffect = -5;
+                    scopePanicEffect = Math.round((-4 - panicLevel / 28) * categoryPanicModifier);
                 }
             }
             
+            let misinterpreted = false;
             if (Math.random() < misinterpretChance) {
-                trustMultiplier *= 0.7;
-                if (baseEffects.morale > 0) baseEffects.morale = Math.round(baseEffects.morale * 0.5);
-                if (baseEffects.rumor < 0) baseEffects.rumor = Math.round(baseEffects.rumor * 0.3);
-                panicEffect += 5;
+                misinterpreted = true;
+                panicTrustFactor *= 0.65;
+                if (baseEffects.morale > 0) baseEffects.morale = Math.round(baseEffects.morale * 0.45);
+                if (baseEffects.rumor < 0) baseEffects.rumor = Math.round(baseEffects.rumor * 0.25);
+                scopePanicEffect += 4 + Math.round(panicLevel / 22);
+                if (panicTier === 'critical') scopePanicEffect += 3;
+                else if (panicTier === 'high') scopePanicEffect += 2;
             }
             
-            const trustChange = Math.round((baseEffects.trust || 0) * trustMultiplier * needMultiplier);
-            const moraleChange = Math.round((baseEffects.morale || 0) * trustMultiplier * needMultiplier);
-            const rumorChange = Math.round((baseEffects.rumor || 0) * trustMultiplier);
-            const finalPanicChange = panicEffect;
+            const trustChange = Math.round((baseEffects.trust || 0) * trustMultiplier * needMultiplier * panicTrustFactor);
+            const moraleChange = Math.round((baseEffects.morale || 0) * trustMultiplier * needMultiplier * panicMoraleFactor);
+            const rumorChange = Math.round((baseEffects.rumor || 0) * trustMultiplier * panicRumorFactor);
+            const finalPanicChange = panicSelfChange + scopePanicEffect;
 
             results.push({
                 districtId: district.id,
@@ -832,7 +973,9 @@ class UndergroundRadioGame {
                 panicChange: finalPanicChange,
                 isTargeted: msg.targetDistrict === district.id,
                 isNeedMatched: district.needs.includes(msg.category),
-                misinterpreted: Math.random() < misinterpretChance
+                misinterpreted: misinterpreted,
+                panicInfluence: panicTier,
+                panicLevel: panicLevel
             });
         });
         
@@ -846,17 +989,30 @@ class UndergroundRadioGame {
             const trustClass = result.trustChange >= 0 ? 'positive' : 'negative';
             const panicClass = result.panicChange <= 0 ? 'positive' : 'negative';
             const moraleClass = result.moraleChange >= 0 ? 'positive' : 'negative';
+            const rumorClass = result.rumorChange <= 0 ? 'positive' : 'negative';
             
+            const panicInfluenceLabels = {
+                critical: '<span class="panic-influence-badge panic-critical">恐慌危急</span>',
+                high: '<span class="panic-influence-badge panic-high">恐慌高涨</span>',
+                medium: '<span class="panic-influence-badge panic-medium">恐慌一般</span>',
+                low: '<span class="panic-influence-badge panic-low">恐慌平息</span>'
+            };
+
             resultsHtml += `
-                <div class="district-result-card ${result.isNeedMatched ? 'need-matched' : ''}">
+                <div class="district-result-card ${result.isNeedMatched ? 'need-matched' : ''} panic-influence-${result.panicInfluence}">
                     <div class="district-result-header">
                         <span class="district-result-name">${result.districtName}</span>
+                        ${panicInfluenceLabels[result.panicInfluence] || ''}
+                    </div>
+                    <div class="district-result-panic-level">当前恐慌: ${result.panicLevel}%</div>
+                    <div class="district-result-tags">
                         ${result.isNeedMatched ? '<span class="need-badge">需求匹配</span>' : ''}
                         ${result.misinterpreted ? '<span class="misinterpret-badge">存在误读</span>' : ''}
                     </div>
                     <div class="district-result-stats">
                         <span class="${trustClass}">信任 ${result.trustChange >= 0 ? '+' : ''}${result.trustChange}</span>
                         <span class="${moraleClass}">民心 ${result.moraleChange >= 0 ? '+' : ''}${result.moraleChange}</span>
+                        <span class="${rumorClass}">谣言 ${result.rumorChange >= 0 ? '+' : ''}${result.rumorChange}</span>
                         <span class="${panicClass}">恐慌 ${result.panicChange >= 0 ? '+' : ''}${result.panicChange}</span>
                     </div>
                 </div>
@@ -869,6 +1025,18 @@ class UndergroundRadioGame {
                           scopeType === 'single' ? '单区域定向广播' : 
                           `${districtResults.length}个城区定向广播`;
 
+        const panicRuleExplain = `
+            <div class="panic-rules-explain">
+                <p><strong>📌 恐慌值影响规则：</strong></p>
+                <ul>
+                    <li><span class="panic-critical-text">危急(≥80%)</span>: 信任难建立(×0.5)、民心提振弱(×0.6)、谣言易扩散(×1.8)、好消息安抚效果差、坏消息冲击大</li>
+                    <li><span class="panic-high-text">高涨(≥60%)</span>: 信任困难(×0.75)、民心偏弱(×0.8)、谣言易扩散(×1.4)、负面消息影响显著放大</li>
+                    <li><span class="panic-medium-text">一般(≥35%)</span>: 各项效果正常，消息反应平稳</li>
+                    <li><span class="panic-low-text">平息(<35%)</span>: 信任易建立(×1.2)、民心提振好(×1.15)、谣言难扩散(×0.7)、更易接纳正面信息</li>
+                </ul>
+            </div>
+        `;
+
         document.getElementById('modalTitle').textContent = '播报完成 - ' + msg.title;
         document.getElementById('modalText').innerHTML = `
             <p>覆盖范围: <strong>${scopeText}</strong></p>
@@ -876,6 +1044,7 @@ class UndergroundRadioGame {
             <p style="margin-top:10px; font-size:12px; color:#888">
                 ${scopeType !== 'all' ? '🎯 定向广播精准送达，减少了无关恐慌' : '📡 全城广播覆盖广，但部分区域存在误读'}
             </p>
+            ${panicRuleExplain}
             ${resultsHtml}
         `;
         document.getElementById('modalEffects').innerHTML = '';
